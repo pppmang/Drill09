@@ -1,7 +1,7 @@
 import math
 
 from pico2d import load_image, get_time
-from sdl2 import SDL_KEYDOWN, SDLK_SPACE, SDLK_RIGHT, SDL_KEYUP, SDLK_LEFT
+from sdl2 import SDL_KEYDOWN, SDLK_SPACE, SDLK_RIGHT, SDL_KEYUP, SDLK_LEFT, SDLK_a
 
 
 def space_down(e):
@@ -23,6 +23,8 @@ def left_down(e):  # 왼쪽 방향키를 누르고 있는 상태에 대한 함�
 def left_up(e):  # 왼쪽 방향키에서 손을 뗀 상태에 대한 함수 (run -> idle)
     return e[0] == 'INPUT' and e[1].type == SDL_KEYUP and e[1].key == SDLK_LEFT
 
+def a_up(e):  # a 키를 누르고 뗀 상태에 대한 함수 (idle -> autorun)
+    return e[0] == 'INPUT' and e[1].type == SDL_KEYUP and e[1].key == SDLK_a
 
 def time_out(e):
     return e[0] == 'TIME_OUT'
@@ -32,16 +34,14 @@ class Sleep:  # 특정함수를 모아 그루핑하는 역할을 하는 클래�
     @staticmethod
     def enter(boy, e):
         boy.frame = 0
-        print('고개 숙이기')
 
     @staticmethod
     def exit(boy, e):
-        print('고개 들기')
+        pass
 
     @staticmethod
     def do(boy):
         boy.frame = (boy.frame + 1) % 8
-        print('드르렁')
 
     @staticmethod
     def draw(boy):
@@ -54,9 +54,9 @@ class Sleep:  # 특정함수를 모아 그루핑하는 역할을 하는 클래�
         pass
 
 
-class Run:  # 특정함수를 모아 그루핑하는 역할을 하는 클래스
+class Run:
     @staticmethod
-    def enter(boy, e):  # 왜 run 으로 왔는지에 대한 정보가 있어야 하기 때문에 event 를 전달해야 함.
+    def enter(boy, e):
         if right_down(e) or left_up(e):  # 오른쪽으로 RUN
             boy.dir, boy.action = 1, 1
         elif left_down(e) or right_up(e):  # 왼쪽으로 RUN
@@ -69,7 +69,7 @@ class Run:  # 특정함수를 모아 그루핑하는 역할을 하는 클래스
     @staticmethod
     def do(boy):
         boy.frame = (boy.frame + 1) % 8
-        boy.x += boy.dir * 5
+        boy.x += boy.dir * 3
         pass
 
     @staticmethod
@@ -83,30 +83,40 @@ class AutoRun:
     def enter(boy, e):
         boy.frame = 0
         boy.dir = 1
-        if boy.dir == 1:
-            boy.action = 1
-        elif boy.dir == -1:
-            boy.action = 0
+        boy.action = 1 if boy.dir == 1 else 0   # 방향 따라 action 을 설정
+        boy.autorun_start_time = get_time()     # AutoRun 상태로 진입할 때 시간 측정
 
 
     @staticmethod
     def exit(boy, e):
-        boy.action = 3
+        if boy.dir == 1:
+            boy.action = 3
+        elif boy.dir == -1:
+            boy.action = 2
         pass
 
     @staticmethod
     def do(boy):
         boy.frame = (boy.frame + 1) % 8
         boy.x += boy.dir * 10
-        pass
+
+        # 화면 좌우 끝에서 방향 전환
+        if boy.x > 750 or boy.x < 50:
+            boy.dir = -boy.dir
+
+        # 5초 경과 시 Idle 상태 복귀
+        if get_time() - boy.autorun_start_time > 5.0:
+            boy.state_machine.handle_event(('TIME_OUT', 0))
 
     @staticmethod
     def draw(boy):
-        boy.image.clip_draw(boy.frame * 100, boy.action * 100, 100, 100, boy.x, boy.y, 200, 200)
-        pass
+        if boy.dir == 1:
+            boy.image.clip_draw(boy.frame * 100, 100, 100, 100, boy.x, boy.y + 30, 200, 200)
+        else:
+            boy.image.clip_draw(boy.frame * 100, 0, 100, 100, boy.x, boy.y + 30, 200, 200)
 
 
-class Idle:  # 특정함수를 모아 그루핑하는 역할을 하는 클래스
+class Idle:
     @staticmethod
     def do(boy):
         boy.frame = (boy.frame + 1) % 8
@@ -140,8 +150,9 @@ class StateMachine:
         self.table = {
             Sleep: {right_down: Run, left_down: Run, right_up: Run, left_up: Run, space_down: Idle},
             # dictionary of dictionary 로 표현
-            Idle: {right_down: Run, left_down: Run, left_up: Run, right_up: Run, time_out: Sleep},
-            Run: {right_down: Idle, left_down: Idle, right_up: Idle, left_up: Idle}
+            Idle: {right_down: Run, left_down: Run, left_up: Run, right_up: Run, time_out: Sleep, a_up: AutoRun},
+            Run: {right_down: Idle, left_down: Idle, right_up: Idle, left_up: Idle},
+            AutoRun: {right_down: Run, left_down: Run, right_up: Run, left_up: Run, time_out: Idle}
         }
 
     def start(self):
