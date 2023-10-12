@@ -47,19 +47,19 @@ class Sleep:  # 특정함수를 모아 그루핑하는 역할을 하는 클래�
     def draw(boy):
         if boy.action == 2:
             boy.image.clip_composite_draw(boy.frame * 100, 200, 100, 100, math.pi / 2, '', boy.x - 25,
-                                      boy.y - 25, 100, 100)
+                                          boy.y - 25, 100, 100)
         else:
             boy.image.clip_composite_draw(boy.frame * 100, 300, 100, 100, math.pi / 2, '', boy.x - 25,
-                                      boy.y - 25, 100, 100)
+                                          boy.y - 25, 100, 100)
         pass
 
 
 class Run:  # 특정함수를 모아 그루핑하는 역할을 하는 클래스
     @staticmethod
-    def enter(boy, e): # 왜 run 으로 왔는지에 대한 정보가 있어야 하기 때문에 event 를 전달해야 함.
-        if right_down(e) or left_up(e):     # 오른쪽으로 RUN
+    def enter(boy, e):  # 왜 run 으로 왔는지에 대한 정보가 있어야 하기 때문에 event 를 전달해야 함.
+        if right_down(e) or left_up(e):  # 오른쪽으로 RUN
             boy.dir, boy.action = 1, 1
-        elif left_down(e) or right_up(e):   # 왼쪽으로 RUN
+        elif left_down(e) or right_up(e):  # 왼쪽으로 RUN
             boy.dir, boy.action = -1, 0
 
     @staticmethod
@@ -75,6 +75,34 @@ class Run:  # 특정함수를 모아 그루핑하는 역할을 하는 클래스
     @staticmethod
     def draw(boy):
         boy.image.clip_draw(boy.frame * 100, boy.action * 100, 100, 100, boy.x, boy.y)
+        pass
+
+
+class AutoRun:
+    @staticmethod
+    def enter(boy, e):
+        boy.frame = 0
+        boy.dir = 1
+        if boy.dir == 1:
+            boy.action = 1
+        elif boy.dir == -1:
+            boy.action = 0
+
+
+    @staticmethod
+    def exit(boy, e):
+        boy.action = 3
+        pass
+
+    @staticmethod
+    def do(boy):
+        boy.frame = (boy.frame + 1) % 8
+        boy.x += boy.dir * 10
+        pass
+
+    @staticmethod
+    def draw(boy):
+        boy.image.clip_draw(boy.frame * 100, boy.action * 100, 100, 100, boy.x, boy.y, 200, 200)
         pass
 
 
@@ -110,7 +138,8 @@ class StateMachine:
         self.boy = boy  # StateMachine 은 boy 를 자신에게 저장함.
         self.cur_state = Idle
         self.table = {
-            Sleep: {right_down: Run, left_down: Run, right_up: Run, left_up: Run, space_down: Idle},  # dictionary of dictionary 로 표현
+            Sleep: {right_down: Run, left_down: Run, right_up: Run, left_up: Run, space_down: Idle},
+            # dictionary of dictionary 로 표현
             Idle: {right_down: Run, left_down: Run, left_up: Run, right_up: Run, time_out: Sleep},
             Run: {right_down: Idle, left_down: Idle, right_up: Idle, left_up: Idle}
         }
